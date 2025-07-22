@@ -504,7 +504,17 @@ function InstalarDesdeWeb {
         $headers = @{
             "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         }
-        $resp = Invoke-WebRequest -Uri $url -OutFile $ruta -Headers $headers -UseBasicParsing -ErrorAction Stop
+        if ($archivo.ToLower().EndsWith(".msi")) {
+            Write-Log "Usando BITS para descargar $nombre (MSI)..." "INFO"
+            Start-BitsTransfer -Source $url -Destination $ruta -ErrorAction Stop
+        }
+        else {
+            $headers = @{
+                "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+            Invoke-WebRequest -Uri $url -OutFile $ruta -Headers $headers -UseBasicParsing -ErrorAction Stop
+        }
+
 
         if (Test-Path $ruta) {
             $tam = (Get-Item $ruta).Length
