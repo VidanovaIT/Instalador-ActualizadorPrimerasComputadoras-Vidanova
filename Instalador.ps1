@@ -514,28 +514,38 @@ function DescargarFondosYProtectorDePantalla {
 
         Write-Log "Fondos descargados correctamente en $fondosPath" "INFO"
 
-        # Descargar Lively.scr y moverlo a Windows
-        $livelyScrUrl = "https://drive.usercontent.google.com/download?id=1TkWfPTYsExpMqNspYee1zEXAP4vVXqtt&export=download"
-        $livelyScrTemp = Join-Path $env:TEMP "Lively.scr"
-        $livelyScrDestino = Join-Path $env:SystemRoot "Lively.scr"
+        # Descargar Lively.scr con confirm token
+        $fileId = "1TkWfPTYsExpMqNspYee1zEXAP4vVXqtt"
+        $fileName = "Lively.scr"
+        $tempScr = Join-Path $env:TEMP $fileName
+        $destinoScr = Join-Path $env:SystemRoot $fileName
 
-        if (!(Test-Path $livelyScrDestino)) {
-            Write-Log "Descargando Lively.scr..." "INFO"
-            Invoke-WebRequest -Uri $livelyScrUrl -OutFile $livelyScrTemp -UseBasicParsing
+        if (!(Test-Path $destinoScr)) {
+            Write-Log "Obteniendo enlace de descarga para $fileName..." "INFO"
+            $baseUrl = "https://drive.google.com/uc?export=download&id=$fileId"
+            $response = Invoke-WebRequest -Uri $baseUrl -SessionVariable webSession -UseBasicParsing
 
-            if (Test-Path $livelyScrTemp) {
-                try {
-                    Copy-Item -Path $livelyScrTemp -Destination $livelyScrDestino -Force
-                    Write-Log "Lively.scr copiado correctamente a $livelyScrDestino" "INFO"
-                }
-                catch {
-                    Write-Warning "Error copiando Lively.scr a C:\Windows. Ejecuta como Administrador. $_"
+            if ($response.Content -match 'confirm=([0-9A-Za-z_]+)') {
+                $confirmToken = $matches[1]
+                $confirmedUrl = "https://drive.google.com/uc?export=download&confirm=$confirmToken&id=$fileId"
+                Write-Log "Descargando $fileName con token de confirmación..." "INFO"
+                Invoke-WebRequest -Uri $confirmedUrl -OutFile $tempScr -WebSession $webSession -UseBasicParsing
+
+                if ((Test-Path $tempScr) -and ((Get-Item $tempScr).Length -gt 10000)) {
+                    try {
+                        Copy-Item -Path $tempScr -Destination $destinoScr -Force
+                        Write-Log "$fileName copiado correctamente a $destinoScr" "INFO"
+                    } catch {
+                        Write-Warning "Error copiando $fileName a C:\Windows. Ejecuta como Administrador. $_"
+                    }
+                } else {
+                    Write-Warning "$fileName no se descargó correctamente o es demasiado pequeño. Revisa el enlace."
                 }
             } else {
-                Write-Warning "No se pudo descargar Lively.scr."
+                Write-Warning "No se pudo extraer el token de confirmación para $fileName. No se descargó."
             }
         } else {
-            Write-Log "Lively.scr ya existe en $livelyScrDestino. Omitiendo descarga." "INFO"
+            Write-Log "$fileName ya existe en $destinoScr. Omitiendo descarga." "INFO"
         }
 
         # Descargar video del protector de pantalla
